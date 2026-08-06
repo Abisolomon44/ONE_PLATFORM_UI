@@ -102,15 +102,16 @@ import { ToastService } from '../../core/toast.service';
                   </td>
                   <td class="text-muted">{{ tenant.createdDate | date: 'MMM d, yyyy' }}</td>
                   <td class="cell-actions">
-                    <base-button variant="secondary" size="sm" icon="square-pen" [iconOnly]="true" label="Edit tenant" (click)="openEdit(tenant)"></base-button>
-                    <base-button
-                      [variant]="tenant.status === 'Active' ? 'danger' : 'primary'"
-                      size="sm"
-                      [icon]="tenant.status === 'Active' ? 'power' : 'shield-check'"
-                      [loading]="statusUpdating() === tenant.tenantId"
-                      [label]="tenant.status === 'Active' ? 'Deactivate' : 'Activate'"
-                      (click)="toggleStatus(tenant)"></base-button>
-                  </td>
+                     <base-button variant="secondary" size="sm" icon="square-pen" [iconOnly]="true" label="Edit tenant" (click)="openEdit(tenant)"></base-button>
+                     <base-button
+                       [variant]="tenant.status === 'Active' ? 'danger' : 'primary'"
+                       size="sm"
+                       [icon]="tenant.status === 'Active' ? 'power' : 'shield-check'"
+                       [loading]="statusUpdating() === tenant.tenantId"
+                       [label]="tenant.status === 'Active' ? 'Deactivate' : 'Activate'"
+                       (click)="toggleStatus(tenant)"></base-button>
+                     <base-button variant="danger" size="sm" icon="trash-2" [iconOnly]="true" label="Delete tenant" (click)="openDelete(tenant)"></base-button>
+                   </td>
                 </tr>
               }
             </tbody>
@@ -147,6 +148,15 @@ import { ToastService } from '../../core/toast.service';
         </base-button>
       </div>
     </base-dialog>
+
+    <base-dialog [open]="deleteDialogOpen()" title="Delete Tenant" [footer]="true" (closeRequest)="deleteDialogOpen.set(false)">
+      <p class="text-muted">Are you sure you want to delete tenant <strong>{{ deleteTarget()?.tenantName }}</strong>?</p>
+      <p class="text-muted" style="font-size:12.5px">This will permanently remove the tenant record and drop its provisioned database.</p>
+      <div class="dialog-footer" style="padding: 18px 0 0; border-top: 1px solid var(--border); margin-top: 6px">
+        <base-button variant="secondary" (click)="deleteDialogOpen.set(false)">Cancel</base-button>
+        <base-button variant="danger" [loading]="deleting()" (click)="confirmDelete()">Delete Tenant & Database</base-button>
+      </div>
+    </base-dialog>
   `,
 })
 export class TenantsPage {
@@ -162,9 +172,12 @@ export class TenantsPage {
   protected readonly size = signal(10);
   protected readonly search = signal('');
   protected readonly plans = signal<Plan[]>([]);
-  protected readonly dialogOpen = signal(false);
-  protected readonly editing = signal<Tenant | null>(null);
-  protected readonly statusUpdating = signal<number | null>(null);
+   protected readonly dialogOpen = signal(false);
+   protected readonly editing = signal<Tenant | null>(null);
+   protected readonly statusUpdating = signal<number | null>(null);
+   protected readonly deleteDialogOpen = signal(false);
+   protected readonly deleteTarget = signal<Tenant | null>(null);
+   protected readonly deleting = signal(false);
 
   protected readonly form = {
     tenantName: signal(''),
@@ -307,21 +320,45 @@ export class TenantsPage {
     }
   }
 
-  protected async toggleStatus(tenant: Tenant): Promise<void> {
-    const target = tenant.status === 'Active' ? 'Suspended' : 'Active';
-    this.statusUpdating.set(tenant.tenantId);
-    try {
-      await firstValueFrom(
-        this.http.put(`/api/tenants/${tenant.tenantId}/status`, { status: target }),
-      );
-      this.toast.success(target === 'Active' ? 'Tenant activated' : 'Tenant deactivated');
-      await this.load();
-    } catch {
-      /* handled by interceptor */
-    } finally {
-      this.statusUpdating.set(null);
-    }
-  }
+   protected async toggleStatus(tenant: Tenant): Promise<void> {
+     const target = tenant.status === 'Active' ? 'Suspended' : 'Active';
+     this.statusUpdating.set(tenant.tenantId);
+     try {
+       await firstValueFrom(
+         this.http.put(`/api/tenants/${tenant.tenantId}/status`, { status: target }),
+       );
+       this.toast.success(target === 'Active' ? 'Tenant activated' : 'Tenant deactivated');
+       await this.load();
+     } catch {
+       /* handled by interceptor */
+     } finally {
+       this.statusUpdating.set(null);
+     }
+   }
+
+   protected openDelete(tenant: Tenant): void {
+     this.deleteTarget.set(tenant);
+     this.deleteDialogOpen.set(true);
+   }
+
+   protected async confirmDelete(): Promise<void> {
+     const tenant = this.deleteTarget();
+     if (!tenant) return;
+     this.deleting.set(true);
+     try {
+       await firstValueFrom(
+         this.http.delete(`/api/tenants/${tenant.tenantId}?dropDatabase=true`),
+       );
+       this.toast.success('Tenant and database deleted');
+       this.deleteDialogOpen.set(false);
+       this.deleteTarget.set(null);
+       await this.load();
+     } catch {
+       /* handled by interceptor */
+     } finally {
+       this.deleting.set(false);
+     }
+   }
 
   private async loadPlans(): Promise<void> {
     try {
