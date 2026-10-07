@@ -47,11 +47,11 @@ export class BasePill {
 
   protected pillClass(): string {
     const s = (this.status() || '').toLowerCase();
-    if (s === 'active' || s === 'paid' || s === 'success' || s === 'provisioned' || s === 'enabled')
+    if (s === 'active' || s === 'paid' || s === 'success' || s === 'provisioned' || s === 'enabled' || s === 'up_to_date')
       return 'success';
     if (s === 'inactive' || s === 'cancelled' || s === 'disabled' || s === 'suspended') return 'warning';
     if (s === 'expired' || s === 'locked' || s === 'failed' || s === 'deleted') return 'danger';
-    if (s === 'pending' || s === 'trialing') return 'info';
+    if (s === 'pending' || s === 'trialing' || s === 'running') return 'info';
     return 'neutral';
   }
 }

@@ -21,6 +21,8 @@ export interface PlatformUser {
   email: string;
   fullName: string;
   role: string;
+  /** Platform permission codes granted to this user; may be empty. */
+  permissions: string[];
 }
 
 export interface LoginResponse {
@@ -98,4 +100,85 @@ export interface RecentTenant {
   tenantName: string;
   status: string;
   createdDate: string;
+}
+
+/* ---------------- Tenant database migration management ---------------- */
+
+/** Mirrors MigrationStatus on the API. */
+export const MigrationStatus = {
+  UpToDate: 'UP_TO_DATE',
+  Pending: 'PENDING',
+  Running: 'RUNNING',
+  Success: 'SUCCESS',
+  Failed: 'FAILED',
+} as const;
+
+/**
+ * Mirrors MigrationPermissions on the API. The API is authoritative; these are
+ * only used to hide affordances a user cannot use.
+ */
+export const MigrationPermission = {
+  View: 'migrations.view',
+  Run: 'migrations.run',
+} as const;
+
+export interface PendingMigration {
+  migrationId: number;
+  version: number;
+  migrationCode: string;
+  migrationName: string;
+  scriptName: string;
+  status: string;
+}
+
+export interface MigrationStatusResponse {
+  tenantId: number;
+  tenantName: string;
+  databaseName: string;
+  currentVersion: number;
+  targetVersion: number;
+  pendingCount: number;
+  status: string;
+  lastError?: string | null;
+  lastRunAt?: string | null;
+  pendingMigrations: PendingMigration[];
+}
+
+export interface MigrationExecution {
+  historyId?: number | null;
+  version: number;
+  migrationCode: string;
+  migrationName: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationMs?: number | null;
+  status: string;
+  errorMessage?: string | null;
+}
+
+export interface MigrationRunResult {
+  executionId: string;
+  tenantId: number;
+  databaseName: string;
+  fromVersion: number;
+  toVersion: number;
+  status: string;
+  message: string;
+  hasFailures: boolean;
+  executed: MigrationExecution[];
+}
+
+export interface MigrationHistoryRow {
+  historyId: number;
+  executionId: string;
+  tenantId: number;
+  version: number;
+  migrationCode: string;
+  migrationName: string;
+  startedAt: string;
+  completedAt?: string | null;
+  durationMs?: number | null;
+  status: string;
+  executedBy?: string | null;
+  errorMessage?: string | null;
 }

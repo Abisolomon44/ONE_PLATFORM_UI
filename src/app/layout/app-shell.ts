@@ -2,6 +2,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../core/auth.service';
+import { MigrationPermission } from '../core/models';
+import { PermissionService } from '../core/permission.service';
 import { ThemeService } from '../core/theme.service';
 import { BaseButton } from '../shared/base-button';
 import { BaseToast } from '../shared/base-feedback';
@@ -10,6 +12,8 @@ interface NavItem {
   route: string;
   label: string;
   icon: string;
+  /** When set, the entry is hidden unless the user holds this permission. */
+  permission?: string;
 }
 
 @Component({
@@ -31,7 +35,7 @@ interface NavItem {
 
         <nav class="sidebar-nav">
           <div class="sidebar-section">Manage</div>
-          @for (item of navItems(); track item.route) {
+          @for (item of visibleNavItems(); track item.route) {
             <a class="nav-item" routerLink="/{{ item.route }}" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: item.route === 'dashboard' }">
               <i-lucide [name]="item.icon" [size]="18"></i-lucide>
               @if (!collapsed()) {
@@ -79,6 +83,7 @@ export class AppShell {
   protected readonly auth = inject(AuthService);
   protected readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
+  private readonly permissions = inject(PermissionService);
 
   protected readonly collapsed = signal(false);
 
@@ -87,8 +92,13 @@ export class AppShell {
     { route: 'tenants', label: 'Tenants', icon: 'building-2' },
     { route: 'plans', label: 'Plans', icon: 'badge-dollar-sign' },
     { route: 'subscriptions', label: 'Subscriptions', icon: 'credit-card' },
+    { route: 'migrations', label: 'Migrations', icon: 'database-zap', permission: MigrationPermission.View },
     { route: 'settings', label: 'Settings', icon: 'settings' },
   ]);
+
+  protected readonly visibleNavItems = computed(() =>
+    this.navItems().filter((item) => !item.permission || this.permissions.has(item.permission)),
+  );
 
   protected readonly pageTitle = computed(() => {
     const url = this.router.url.split('?')[0];
